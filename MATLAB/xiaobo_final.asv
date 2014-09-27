@@ -1,0 +1,117 @@
+clear;
+%I=imread('lady.bmp');
+I=dicomread('dicomfile.dcm'); 
+X=double(I);
+%A=25*I;
+%imshow(A);
+%[]将自动选择一个参数进行归一化处理来显示一幅图像。
+%imshow(I,[]); title('直接打开dicom');
+info=dicominfo('dicomfile.dcm');
+wincenter=info.WindowCenter;
+winwidth=info.WindowWidth;
+width=info.Width;
+height=info.Height;
+D=zeros(height,width);
+for i=1:height
+    for j=1:width
+        if X(i,j)>(wincenter+winwidth/2)
+            D(i,j)=255;
+        elseif X(i,j)<(wincenter-winwidth/2)
+            D(i,j)=0;
+        else
+            D(i,j)=(X(i,j)-(wincenter-winwidth /2))*256/winwidth;
+        end;
+    end;
+end;
+%A=(I-(wincenter-width /2))*(255 /winwidth );
+%imshow(A);
+disp('wincenter=');disp(wincenter);
+disp('winwidth=');disp(winwidth);
+disp('width=');disp(width);
+disp('height=');disp(height);
+figure;
+imshow(uint8(D));title('原始图像');
+
+%load lena_mat;
+%load  woman;
+%colormap(pink(255)),sm=size(map,1);
+%image(I);
+%colormap(map);
+init = 2055615866; randn('seed',init);
+A = D + 20*randn(size(D));
+%A=imnoise(I,'gaussian',0,0.005);
+%A = imnoise(I,'localvar',V);
+figure;
+imshow(uint8(A));
+%image(uint8(A));
+%colormap(map);
+title(' 含噪图像 ');
+
+[thr,sorh,keepapp]=ddencmp('den','wv',A);
+disp('thr=');disp(thr);
+xd=wdencmp('gbl',A,'sym4',2,thr,sorh,keepapp);
+figure;
+imshow(uint8(xd));
+%image(uint8(xd));
+%colormap(map);
+title('Haar小波降噪后图像');
+
+%对图像进行3层二维小波分解
+[c,s]=wavedec2(A,3,'sym8');
+[thr3,nkeep3]=wdcbm2(c,s,1.5,2.7*prod(s(1,:)));
+disp('thr3=');disp(thr3);
+disp('nkeep3=');disp(nkeep3);
+[xd3,cxd,sxd,perf0,perf12]=wdencmp('lvd',c,s,'sym8',3,thr3,'s');
+figure;
+imshow(uint8(xd3));
+title('Sym8小波使用分层软阈值降噪图像');
+
+%两组降噪图像同原图像的误差
+err1=norm(xd-D);
+err2=norm(xd3-D);
+%求保留的能量成分
+per1=norm(xd)/norm(A);
+per2=norm(xd3)/norm(A);
+%降噪后图像和降噪前图像信噪比
+temp1=0;temp2=0;
+for i=1:height
+    for j=1:width
+        temp1=temp1+A(i,j)*A(i,j);
+        temp2=temp2+(A(i,j)-D(i,j))*(A(i,j)-D(i,j));
+    end;
+end;
+SNR1=10*log10(temp1/temp2);
+P1=10*log10(temp2);
+PSNR1=10*log10(255*255)+10*log10(double(height*width))-P1;
+temp3=0;temp4=0;
+for i=1:height
+    for j=1:width
+        temp3=temp3+xd3(i,j)*xd3(i,j);
+        temp4=temp4+(xd3(i,j)-D(i,j))*(xd3(i,j)-D(i,j));
+    end;
+end;
+SNR2=10*log10(temp3/temp4);
+P2=10*log10(temp4);
+PSNR2=10*log10(255*255)+10*log10(double(height*width))-P2;
+
+temp3=0;temp4=0;
+for i=1:height
+    for j=1:width
+        temp3=temp3+xd(i,j)*xd(i,j);
+        temp4=temp4+(xd(i,j)-D(i,j))*(xd(i,j)-D(i,j));
+    end;
+end;
+SNR3=10*log10(temp3/temp4);
+P3=10*log10(temp4);
+PSNR3=10*log10(255*255)+10*log10(double(height*width))-P3;
+
+disp('含噪声图像信噪比');disp(SNR1);
+disp('含噪声图像峰值信噪比');disp(PSNR1);
+disp('Haar小波去噪后图像信噪比');disp(SNR3);
+disp('Haar小波去噪后图像峰值信噪比');disp(PSNR3);
+disp('sym8小波去噪后图像信噪比');disp(SNR2);
+disp('sym8小波去噪后图像峰值信噪比');disp(PSNR2);
+disp('Haar小波降噪图像同原图像的误差');disp(err1);
+disp('sym8小波降噪图像同原图像的误差');disp(err2);
+disp('Haar小波保留的能量成分');disp(per1);
+disp('保留的能量成分');disp(per2);
